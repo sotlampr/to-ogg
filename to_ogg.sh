@@ -4,7 +4,7 @@
 # License: MIT
 
 
-# Arguements
+# Arguments
 while [[ $# > 0 ]]; do
   key="$1"
   case $key in
