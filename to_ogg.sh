@@ -31,7 +31,11 @@ while [[ $# > 0 ]]; do
     # Write a .nomedia file in each directory
     --nomedia)
     NOMEDIA=true
-    shift;;
+    ;;
+    # Verbosity flag
+    -v| --verbose)
+    VERBOSE=true
+    ;;
     # display the help
     -h| --help)
     H="1"
@@ -54,8 +58,11 @@ while [[ $# > 0 ]]; do
     printf "\t\tdefaults to jpg,png,pdf\n"
     printf "\t -q\tSpecify the target Vorbis quality\n"
     printf "\t\tdefaults to 6\n"
+    printf "\t --nomedia\tWrite a .nomedia file in each directory\n"
+    printf "\t -v| --verbose\n"
     printf "Notes:\n"
     printf "\tTo kill the script when running, press Ctrl-C twice in a rapid succession\n"
+    exit
     ;;
   esac
   shift
@@ -87,8 +94,14 @@ find "$IN_PATH" -name "*.$TYPE" -print0 | while IFS= read -r -d '' file; do
 
   # Create the directory in out_path if not exists
   if [ ! -f "$DIR_OUT" ]; then
+    if [ "$VERBOSE" = true ]; then
+      echo "...creating $DIR_OUT"
+    fi
     mkdir -p "$DIR_OUT"
     if [ "$NOMEDIA" = true ]; then
+    if [ "$VERBOSE" = true ]; then
+      echo "...creating ${DIR_OUT}/.nomedia file"
+    fi
       touch "${DIR_OUT}/.nomedia"
     fi;
   fi;
@@ -97,8 +110,17 @@ find "$IN_PATH" -name "*.$TYPE" -print0 | while IFS= read -r -d '' file; do
   TEMP=$(basename "$file")
   FILE_OUT="$DIR_OUT/${TEMP%.*}.ogg"
 
-  # Perform the conversion
-  sox "$file" -C$Q "$FILE_OUT" --multi-threaded
+  # Check if file already exists and perform the conversion
+  if [ ! -f "$FILE_OUT" ]; then
+    if [ "$VERBOSE" = true ]; then
+      echo "...converting $file"
+    fi
+    sox "$file" -C$Q "$FILE_OUT" --multi-threaded
+  else
+    if [ "$VERBOSE" = true ]; then
+    echo "...skipping $file"
+    fi
+  fi
 done
 
 # Copy extra files
@@ -110,7 +132,14 @@ for filetype in $(echo $EXTRAS | sed "s/,/ /g"); do
     FILE_OUT="$DIR_OUT/$(basename "$file")"
 
     if [ ! -f "$FILE_OUT" ]; then
+      if [ "$VERBOSE" = true ]; then
+        echo "...copying $file"
+      fi
       cp "$file" "$FILE_OUT"
+    else
+      if [ "$VERBOSE" = true ]; then
+        echo "...skipping $file"
+      fi
     fi
   done
 done
