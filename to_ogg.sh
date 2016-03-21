@@ -163,9 +163,12 @@ for filetype in $(echo $EXTRAS | sed "s/,/ /g"); do
     target='folder.jpg'
     TEMP="$(dirname "$file")"
     if [ "${clean,,}" = "${target,,}" ]; then
+      # It is ok to copy folder.jpg to main folder
       DIR_OUT="$OUT_PATH${TEMP#"$IN_PATH"}"
+      IN_ASSETS=false
     else
       DIR_OUT="$OUT_PATH${TEMP#"$IN_PATH"}/assets"
+      IN_ASSETS=true
     fi
     FILE_OUT="$DIR_OUT/$(basename "$file")"
     # Create directory in out_path if not exists
@@ -174,10 +177,10 @@ for filetype in $(echo $EXTRAS | sed "s/,/ /g"); do
         echo "...creating $DIR_OUT"
       fi
       mkdir -p "$DIR_OUT"
-      if [ "$NOMEDIA" = true ]; then
-      if [ "$VERBOSE" = true ]; then
-        echo "...creating ${DIR_OUT}/.nomedia file"
-      fi
+      if [ "$NOMEDIA" = true  -a "$IN_ASSETS" = true ]; then
+        if [ "$VERBOSE" = true ]; then
+          echo "...creating ${DIR_OUT}/.nomedia file"
+        fi
         touch "${DIR_OUT}/.nomedia"
       fi;
     fi;
