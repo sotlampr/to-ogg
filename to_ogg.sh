@@ -2,6 +2,7 @@
 # A simple script to batch convert a music collection to ogg vorbis files.
 # Author: Sotiris Lamprinidis (sot.lampr@gmail.com)
 # License: MIT
+# Revision A
 
 
 # Arguments
@@ -20,6 +21,10 @@ while [[ $# > 0 ]]; do
     -t| --type)
     TYPE="$2"
     shift;;
+    # specify audio files to skip
+    -s| --skip)
+    SKIP="$2"
+    shift;;
     # specify the target Vorbis quality
     -q)
     Q="$2"
@@ -28,7 +33,7 @@ while [[ $# > 0 ]]; do
     -e| --extras)
     EXTRAS="$2"
     shift;;
-    # Write a .nomedia file in each directory
+    # Write a .nomedia file in each assets dir
     --nomedia)
     NOMEDIA=true
     ;;
@@ -54,11 +59,14 @@ while [[ $# > 0 ]]; do
     printf "\t\tdefaults to {input directory}_converted/\n"
     printf "\t -t| --type\tSpecify the file type\n"
     printf "\t\tdefaults to flac\n"
+    printf "\t -s| --skip\tSpecify other audio files to copy without transcoding type\n"
+    printf "\t\tdefaults to mp3,m4a,ogg\n"
     printf "\t -e| --extras\tSpecify extra files to move\n"
     printf "\t\tdefaults to jpg,png,pdf\n"
     printf "\t -q\tSpecify the target Vorbis quality\n"
     printf "\t\tdefaults to 6\n"
-    printf "\t --nomedia\tWrite a .nomedia file in each directory\n"
+    printf "\t --nomedia\tCopy media to a media directory and write a .nomedia " \
+           "file in each directory\n"
     printf "\t -v| --verbose\n"
     printf "Notes:\n"
     printf "\tTo kill the script when running, press Ctrl-C twice in a rapid succession\n"
@@ -76,6 +84,8 @@ if [ -z "$OUT_PATH" ]; then
   OUT_PATH="${IN_PATH%/}_converted"; fi
 if [ -z "$TYPE" ]; then
   TYPE="flac"; fi
+if [ -z "$SKIP" ]; then
+  SKIP="mp3,mp4,ogg"; fi
 if [ -z "$Q" ]; then
   Q="6"; fi
 if [ -z "$EXTRAS" ]; then
@@ -90,20 +100,14 @@ find "$IN_PATH" -name "*.$TYPE" -print0 | while IFS= read -r -d '' file; do
 
   # Parse the directory the file resides in and create target directories
   TEMP=$(dirname "$file")
-  DIR_OUT="$OUT_PATH/${TEMP#"$IN_PATH"}"
+  DIR_OUT="$OUT_PATH${TEMP#"$IN_PATH"}"
 
   # Create the directory in out_path if not exists
-  if [ ! -f "$DIR_OUT" ]; then
+  if [ ! -d "$DIR_OUT" ]; then
     if [ "$VERBOSE" = true ]; then
       echo "...creating $DIR_OUT"
     fi
     mkdir -p "$DIR_OUT"
-    if [ "$NOMEDIA" = true ]; then
-    if [ "$VERBOSE" = true ]; then
-      echo "...creating ${DIR_OUT}/.nomedia file"
-    fi
-      touch "${DIR_OUT}/.nomedia"
-    fi;
   fi;
 
   # Parse the file name
@@ -118,18 +122,65 @@ find "$IN_PATH" -name "*.$TYPE" -print0 | while IFS= read -r -d '' file; do
     sox "$file" -C$Q "$FILE_OUT" --multi-threaded
   else
     if [ "$VERBOSE" = true ]; then
-    echo "...skipping $file"
+      echo "...skipping $file"
     fi
   fi
+done
+
+# Copy audio files
+echo "Copying audio files..."
+for filetype in $(echo $SKIP | sed "s/,/ /g"); do
+  find "$IN_PATH" -name "*.$filetype" -print0 | while IFS= read -r -d '' file; do
+    TEMP="$(dirname "$file")"
+    DIR_OUT="$OUT_PATH${TEMP#"$IN_PATH"}"
+    FILE_OUT="$DIR_OUT/$(basename "$file")"
+    # Create directory in out_path if not exists
+    if [ ! -d "$DIR_OUT" ]; then
+      if [ "$VERBOSE" = true ]; then
+        echo "...creating $DIR_OUT"
+      fi
+      mkdir -p "$DIR_OUT"
+    fi;
+
+    if [ ! -f "$FILE_OUT" ]; then
+      if [ "$VERBOSE" = true ]; then
+        echo "...copying $file"
+      fi
+      cp "$file" "$FILE_OUT"
+    else
+      if [ "$VERBOSE" = true ]; then
+        echo "...skipping $file"
+      fi
+    fi
+  done
 done
 
 # Copy extra files
 echo "Copying extra files..."
 for filetype in $(echo $EXTRAS | sed "s/,/ /g"); do
   find "$IN_PATH" -name "*.$filetype" -print0 | while IFS= read -r -d '' file; do
-    TEMP=$(dirname "$file")
-    DIR_OUT="$OUT_PATH/${TEMP#"$IN_PATH"}"
+    clean=$(basename "$file")
+    target='folder.jpg'
+    TEMP="$(dirname "$file")"
+    if [ "${clean,,}" = "${target,,}" ]; then
+      DIR_OUT="$OUT_PATH${TEMP#"$IN_PATH"}"
+    else
+      DIR_OUT="$OUT_PATH${TEMP#"$IN_PATH"}/assets"
+    fi
     FILE_OUT="$DIR_OUT/$(basename "$file")"
+    # Create directory in out_path if not exists
+    if [ ! -d "$DIR_OUT" ]; then
+      if [ "$VERBOSE" = true ]; then
+        echo "...creating $DIR_OUT"
+      fi
+      mkdir -p "$DIR_OUT"
+      if [ "$NOMEDIA" = true ]; then
+      if [ "$VERBOSE" = true ]; then
+        echo "...creating ${DIR_OUT}/.nomedia file"
+      fi
+        touch "${DIR_OUT}/.nomedia"
+      fi;
+    fi;
 
     if [ ! -f "$FILE_OUT" ]; then
       if [ "$VERBOSE" = true ]; then
